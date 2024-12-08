@@ -1,22 +1,5 @@
 """
-这个是我用于日志、输出、调试的日志工具，直接根据这个使用即可，不要去做调整
-
-**使用方式如下**
-```python
-# script.py
-from utils.log_kit import logger, divider
-
-# 输出日志信息
-logger.debug("调试信息，没有标记和颜色，等同于print")
-logger.info("提示信息，蓝色的，可以记录一些中间结果")
-logger.ok("完成提示，绿色的，通常表示成功和完成")
-logger.warning("警告信息，黄色的，通常表示警告")
-logger.error("错误信息，红色的，通常是报错的相关提示")
-logger.critical("重要提示，深红色。通常是非常关键的信息")
-divider('这个是我做的分割线的功能')
-divider('点点是可以换的', sep='*')
-divider('文字是居中的哦，英文和中文我尽量适配了。。。', sep='-')
-```
+QuantClass Simons' Log Kit
 """
 
 import logging
@@ -24,15 +7,18 @@ import sys
 import time
 import unicodedata
 from datetime import datetime
+from pathlib import Path
 
 from colorama import Fore, Style, init
 
 init(autoreset=True)
 
+current_script = Path(sys.argv[0]).stem
+
 # ====================================================================================================
-# ** 添加ok的日志级别 **
-# 给默认的logging模块，添加一个用于表达成功的级别
-# 我给他取名叫ok，以后logger.ok就能输出一个表示成功的信息
+# ** Add 'ok' log level **
+# Add a custom log level to the default logging module
+# Allowing logger.ok to output a success message.
 # ====================================================================================================
 OK_LEVEL = 25
 logging.addLevelName(OK_LEVEL, "OK")
@@ -47,15 +33,13 @@ logging.Logger.ok = ok
 
 
 # ====================================================================================================
-# ** 辅助函数 **
-# - get_display_width(): 获取文本的显示宽度，中文字符算作1.685个宽度单位，以尽量保持显示居中
-# - 37ke
+# ** Helper function **
 # ====================================================================================================
 def get_display_width(text: str) -> int:
     """
-    获取文本的显示宽度，中文字符算作1.685个宽度单位，以尽量保持显示居中
-    :param text: 输入的文本
-    :return: 文本的显示宽度
+    Get the display width of text. 
+    :param text: Input text
+    :return: Display width of the text
     """
     width = 0
     for char in text:
@@ -67,16 +51,15 @@ def get_display_width(text: str) -> int:
 
 
 # ====================================================================================================
-# ** 西蒙斯日志工具 **
-# - SimonsFormatter(): 自定义日志格式
-# - SimonsConsoleHandler(): 自定义控制台输出
-# - SimonsLogger(): 日志工具
-# 然而你不懂就不要改了，也没什么好改的，也欢迎增强分享
+# ** Simons Log Tool **
+# - SimonsFormatter(): Custom log formatter
+# - SimonsConsoleHandler(): Custom console output
+# - SimonsLogger(): Log utility
 # ====================================================================================================
 class SimonsFormatter(logging.Formatter):
     FORMATS = {
         logging.DEBUG: ('', ''),
-        logging.INFO: (Fore.BLUE, "🔵 "),
+        logging.INFO: (Fore.WHITE, "🌀 "),
         logging.WARNING: (Fore.YELLOW, "🔔 "),
         logging.ERROR: (Fore.RED, "❌ "),
         logging.CRITICAL: (Fore.RED + Style.BRIGHT, "⭕ "),
@@ -90,22 +73,19 @@ class SimonsFormatter(logging.Formatter):
 
 
 class SimonsConsoleHandler(logging.StreamHandler):
-
     def emit(self, record):
         if record.levelno == logging.DEBUG:
             print(record.msg, flush=True)
         elif record.levelno == OK_LEVEL:
             super().emit(record)
-            print()
         else:
             super().emit(record)
 
 
-# noinspection PyProtectedMember
 class SimonsLogger:
     _instance = dict()
 
-    def __new__(cls, name='Log'):
+    def __new__(cls, name='DataTool'):
         if cls._instance.get(name) is None:
             cls._instance[name] = super(SimonsLogger, cls).__new__(cls)
             cls._instance[name]._initialize_logger(name)
@@ -115,39 +95,40 @@ class SimonsLogger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
 
-        # 如果有handlers，就清理掉
+        # Clear handlers if any exist
         if self.logger.hasHandlers():
             self.logger.handlers.clear()
 
-        # 添加命令行输出
+        # Add console output
         console_handler = SimonsConsoleHandler(sys.stdout)
         console_handler.setFormatter(SimonsFormatter("%(message)s"))
         self.logger.addHandler(console_handler)
 
 
 # ====================================================================================================
-# ** 功能函数 **
-# - get_logger(): 获取日志对象，可以指定名称来区分日志
-# - divider(): 画一个带时间戳的横线
-# - logger: 默认的日志对象，独立跑一个脚本的话，可以直接用这个
+# ** Utility functions **
+# - get_logger(): Get a logger instance, optionally with a specific name
+# - divider(): Draw a line with a timestamp
+# - logger: Default logger object, can be used directly for standalone scripts
 # ====================================================================================================
-def get_logger(name=None) -> logging.Logger:
+def get_logger(name=None):
     if name is None:
-        name = 'BinanceDataTool'
+        name = current_script
     return SimonsLogger(name).logger
 
 
-def divider(name='', sep='=', logger_=None, display_time=True) -> None:
+def divider(name='', sep='=', _logger=None, with_timestamp=True) -> None:
     """
-    画一个带时间戳的横线
-    :param name: 中间的名称
-    :param sep: 分隔符
-    :return: 没有返回值，直接画一条线
-    :param _logger: 指定输出的log文件
+    Draw a line with a timestamp
+    :param name: Text in the middle
+    :param sep: Separator character
+    :return: No return value, directly draws a line
+    :param _logger: Specific log file for output
+    :param with_timestamp: Whether to include a timestamp
     """
-    seperator_len = 72
-    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    if display_time:
+    seperator_len = 82
+    if with_timestamp:
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         middle = f' {name} {now} '
     else:
         middle = f' {name} '
@@ -155,29 +136,29 @@ def divider(name='', sep='=', logger_=None, display_time=True) -> None:
     decoration_count = max(4, (seperator_len - middle_width) // 2)
     line = sep * decoration_count + middle + sep * decoration_count
 
-    # 如果总长度不够，再补一个分隔符
+    # Add an extra separator if the total length is insufficient
     if get_display_width(line) < seperator_len:
         line += sep
 
-    if logger_:
-        logger_.debug(line)
+    if _logger:
+        _logger.debug(line)
     else:
         logger.debug(line)
-    time.sleep(0.05)
+    time.sleep(0.02)
 
 
-logger = get_logger('binance_datatool')
+logger = get_logger()
 
-# 直接运行，查看使用案例
+# Run directly to see usage examples
 if __name__ == '__main__':
-    # 输出日志信息
-    logger.debug("调试信息，没有标记和颜色，等同于print")
-    logger.info("提示信息，蓝色的，可以记录一些中间结果")
+    # Output log information
+    logger.debug("Debug information without markers or colors, equivalent to print")
+    logger.info("Informational message in blue, useful for recording intermediate results")
     # noinspection PyUnresolvedReferences
-    logger.ok("完成提示，绿色的，通常表示成功和完成")
-    logger.warning("警告信息，黄色的，通常表示警告")
-    logger.error("错误信息，红色的，通常是报错的相关提示")
-    logger.critical("重要提示，深红色。通常是非常关键的信息")
-    divider('这个是我做的分割线的功能')
-    divider('点点是可以换的', sep='*')
-    divider('文字是居中的哦，英文和中文我尽量适配了。。。', sep='-')
+    logger.ok("Completion message in green, typically indicating success")
+    logger.warning("Warning message in yellow, typically used for alerts")
+    logger.error("Error message in red, usually error-related hints")
+    logger.critical("Critical message in dark red, typically very important information")
+    divider('This is my divider function')
+    divider('You can change the separator characters', sep='*')
+    divider('The text is centered, and I’ve tried to adapt for both English and Chinese...', sep='-')
